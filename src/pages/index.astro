@@ -1,0 +1,11 @@
+---
+import '../styles/global.css'
+import Formulario from '../components/formulario.vue';
+import Layout from '../layout/layout.astro';
+---
+
+<Layout title='IAnutri' description='Software de nutrición asociado a IA'>
+	<main class="px-4">
+		<Formulario client:visible/>
+	</main>
+</Layout>
