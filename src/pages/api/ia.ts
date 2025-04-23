@@ -1,38 +1,48 @@
-// src/pages/api/analisis.ts
-import { type APIContext } from "astro";
-import "dotenv/config";
 
-export async function GET({ request }: APIContext) {
-  const url = new URL(request.url);
-  const params = url.searchParams;
-  console.log("Parámetros recibidos:", params.toString());
-  const nombre = params.get("nombre") || "No proporcionado";
-  const edad = params.get("edad") || "No especificada";
-  const peso = parseFloat(params.get("peso") || "0");
-  const altura = parseFloat(params.get("altura") || "0");
-  const genero = params.get("genero") || "No especificado";
-  const enfermedades = params.get("enfermedades") || "Ninguna declarada";
-  const tratamiento = params.get("tratamiento") || "No";
-  const email = params.get("email") || "No proporcionado";
+export interface DatosPaciente {
+  nombre: string;
+  edad: number;
+  peso: number;
+  altura: number;
+  genero: string;
+  enfermedades: string;
+  tratamiento: string;
+  imcTexto: string;
+}
 
-  let imcTexto = "No calculado";
+interface GroqResponse {
+  choices?: {
+    message?: {
+      content?: string;
+    };
+  }[];
+}
+
+// Función para calcular el IMC
+export function calcularIMC(peso: number, altura: number): string {
   if (peso > 0 && altura > 0) {
     const alturaMetros = altura / 100;
     const imc = peso / (alturaMetros * alturaMetros);
-    imcTexto = imc.toFixed(2);
+    return imc.toFixed(2);
   }
+  return "No calculado";
+}
+
+// Función para llamar a la IA y obtener el análisis
+export async function obtenerAnalisisIA(datos: DatosPaciente): Promise<string> {
+  const imcTexto = calcularIMC(datos.peso, datos.altura);
 
   const prompt = `Analiza los siguientes datos de un paciente y sugiere una alimentación saludable:
-- Nombre: ${nombre}
-- Edad: ${edad}
-- Peso: ${peso} kg
-- Altura: ${altura} cm
-- Género: ${genero}
-- Enfermedades: ${enfermedades}
-- En tratamiento: ${tratamiento}
-- IMC calculado: ${imcTexto}
+- Nombre: ${datos.nombre}
+- Edad: ${datos.edad}
+- Peso: ${datos.peso} kg
+- Altura: ${datos.altura} cm
+- Género: ${datos.genero}
+- Enfermedades: ${datos.enfermedades}
+- En tratamiento: ${datos.tratamiento}
+- IMC calculado: ${datos.imcTexto}
 
-Entrega una breve evaluación de salud general, indícale según su estatura y edad su pes ideal, posibles riesgos, y una pauta alimentaria saludable.
+Entrega una breve evaluación de salud general, calcula cuál debería ser su peso ideal, posibles riesgos, y una pauta alimentaria saludable.
 Recuérdale consultar con su médico regularmente.
 `;
 
@@ -48,7 +58,8 @@ Recuérdale consultar con su médico regularmente.
         messages: [
           {
             role: "system",
-            content: "Eres un nutricionista que analiza datos de pacientes y recomienda alimentación.",
+            content:
+              "Eres un nutricionista que analiza datos de pacientes y recomienda alimentación.",
           },
           { role: "user", content: prompt },
         ],
@@ -56,35 +67,19 @@ Recuérdale consultar con su médico regularmente.
       }),
     });
 
-    const data = await response.json();
-    const analysis = data?.choices?.[0]?.message?.content || "Respuesta inesperada de la IA.";
+    const data = (await response.json()) as GroqResponse;
 
-    return new Response(
-      JSON.stringify({
-        nombre,
-        edad,
-        peso,
-        altura,
-        genero,
-        enfermedades,
-        tratamiento,
-        email,
-        imc: imcTexto,
-        ia: analysis,
-      }),
-      {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
-  } catch (err) {
-    return new Response(
-      JSON.stringify({
-        error: "Ocurrió un error al conectar con la IA.",
-      }),
-      { status: 500 }
-    );
+    if (
+      data.choices &&
+      data.choices.length > 0 &&
+      data.choices[0].message?.content
+    ) {
+      return data.choices[0].message.content;
+    } else {
+      return "La respuesta de la IA fue inesperada.";
+    }
+  } catch (error) {
+    console.error("Error al consultar Groq:", error);
+    return "Error al conectar con la IA.";
   }
 }
