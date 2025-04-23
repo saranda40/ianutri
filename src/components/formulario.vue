@@ -1,5 +1,4 @@
 <template>
-    <h1 class="text-2xl font-bold text-center mb-3">Formulario de Datos</h1>
     <form @submit.prevent="enviarFormulario" class="space-y-5 mt-4">
         <!-- Campo Nombre -->
         <div class="rounded-lg p-4">
